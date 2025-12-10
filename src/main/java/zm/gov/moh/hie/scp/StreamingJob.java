@@ -19,6 +19,10 @@ import zm.gov.moh.hie.scp.sink.JdbcSink;
 import zm.gov.moh.hie.scp.util.DateTimeUtil;
 import zm.gov.moh.hie.scp.util.Hl7Parser;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.time.LocalDateTime;
 
 public class StreamingJob {
@@ -61,7 +65,7 @@ public class StreamingJob {
         // Parse HL7 messages and filter
         SingleOutputStreamOperator<LabOrder> orders = kafkaStream
                 .filter(msg -> !StringUtils.isNullOrWhitespaceOnly(msg))
-                .map(new StringToLabOrderMapFunction())
+                .map(new StringToLabOrderMapFunction(cfg.jdbcUrl, cfg.jdbcUser, cfg.jdbcPassword))
                 .filter(order -> order != null)
                 .name("Parse HL7 Messages").disableChaining();
 
@@ -75,6 +79,36 @@ public class StreamingJob {
 
     private static class StringToLabOrderMapFunction extends RichMapFunction<String, LabOrder> {
         private static final Logger LOG = LoggerFactory.getLogger(StringToLabOrderMapFunction.class);
+        private final String jdbcUrl;
+        private final String jdbcUser;
+        private final String jdbcPassword;
+        private transient Connection dbConnection;
+
+        public StringToLabOrderMapFunction(String jdbcUrl, String jdbcUser, String jdbcPassword) {
+            this.jdbcUrl = jdbcUrl;
+            this.jdbcUser = jdbcUser;
+            this.jdbcPassword = jdbcPassword;
+        }
+
+        @Override
+        public void open(Configuration parameters) throws Exception {
+            super.open(parameters);
+            try {
+                dbConnection = DriverManager.getConnection(jdbcUrl, jdbcUser, jdbcPassword);
+                LOG.info("Connected to database for LOINC lookup");
+            } catch (Exception e) {
+                LOG.error("Failed to establish database connection for LOINC lookup: {}", e.getMessage(), e);
+            }
+        }
+
+        @Override
+        public void close() throws Exception {
+            if (dbConnection != null && !dbConnection.isClosed()) {
+                dbConnection.close();
+                LOG.info("Closed database connection");
+            }
+            super.close();
+        }
 
         @Override
         public LabOrder map(String omlString) {
@@ -113,6 +147,7 @@ public class StreamingJob {
                 String orderId = extractOrderIdFromMessage(omlString);
                 String orderDate = null;
                 String orderTime = null;
+                Short testId = null;
 
                 // Extract order date/time from message
                 String[] dateTimeParts = extractDateTimeFromMessage(omlString);
@@ -121,19 +156,35 @@ public class StreamingJob {
                     orderTime = dateTimeParts[1];
                 }
 
+                // Extract LOINC code from OBR-4 (Universal Service ID) and lookup test_id
+                String loincCode = extractLoincFromMessage(omlString);
+                if (loincCode != null && !loincCode.isEmpty()) {
+                    LOG.debug("Extracted LOINC code: {}", loincCode);
+                    // Lookup test_id from database using LOINC code
+                    testId = lookupTestIdByLoinc(loincCode);
+                    if (testId != null) {
+                        LOG.debug("Found test_id {} for LOINC code {}", testId, loincCode);
+                    } else {
+                        LOG.warn("No test_id found in database for LOINC code: {}", loincCode);
+                    }
+                } else {
+                    LOG.debug("No LOINC code found in message");
+                }
+
                 // Create LabOrder object
                 if (orderId != null && header != null && header.getMessageId() != null) {
                     LabOrder labOrder = new LabOrder(
                             header,
                             hmisCode != null ? hmisCode : "",
                             orderId,
-                            null,
+                            testId,
                             orderDate,
                             orderTime,
                             header.getMessageId(),
                             sendingApplication != null ? sendingApplication : ""
                     );
-                    LOG.info("Parsed LabOrder: orderId={}, messageRefId={}", orderId, header.getMessageId());
+                    LOG.info("Parsed LabOrder: orderId={}, messageRefId={}, loincCode={}, testId={}",
+                            orderId, header.getMessageId(), loincCode, testId);
                     return labOrder;
                 }
 
@@ -188,6 +239,56 @@ public class StreamingJob {
                             }
                         } catch (Exception e) {
                             LOG.debug("Could not parse date/time: {}", fields[7]);
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        private Short lookupTestIdByLoinc(String loincCode) {
+            if (dbConnection == null || loincCode == null || loincCode.isEmpty()) {
+                return null;
+            }
+            try {
+                String sql = "SELECT test_id FROM ref.lab_test WHERE loinc = ? LIMIT 1";
+                try (PreparedStatement stmt = dbConnection.prepareStatement(sql)) {
+                    stmt.setString(1, loincCode);
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        if (rs.next()) {
+                            return rs.getShort("test_id");
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                LOG.error("Error looking up test_id for LOINC code {}: {}", loincCode, e.getMessage());
+            }
+            return null;
+        }
+
+        private String extractLoincFromMessage(String message) {
+            // Extract LOINC code from OBR-4 (Universal Service ID)
+            // OBR segment format: OBR|field1|field2|field3|field4|...
+            // OBR-4 can contain: identifier^text^name_of_coding_system^alt_id^alt_text^alt_name_of_coding_system
+            // LOINC is typically in the alternate identifier position
+            String[] lines = message.split("\r");
+            for (String line : lines) {
+                if (line.startsWith("OBR|")) {
+                    String[] fields = line.split("\\|");
+                    if (fields.length > 4 && !fields[4].isEmpty()) {
+                        try {
+                            String obrField = fields[4];
+                            // Split by ^ to get components
+                            String[] components = obrField.split("\\^");
+                            // Try to find LOINC code (usually in position 0 or 3)
+                            if (components.length > 0 && !components[0].isEmpty()) {
+                                return components[0]; // Return main identifier
+                            }
+                            if (components.length > 3 && !components[3].isEmpty()) {
+                                return components[3]; // Return alternate identifier (LOINC)
+                            }
+                        } catch (Exception e) {
+                            LOG.debug("Could not extract LOINC from OBR-4: {}", fields[4]);
                         }
                     }
                 }
