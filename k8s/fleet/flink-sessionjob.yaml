@@ -1,0 +1,16 @@
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: scpro-disa-orders-pipeline
+  namespace: flink-jobs
+spec:
+  deploymentName: session-cluster
+  job:
+    jarURI: https://github.com/zm-scpro/zm-scpro-disa-orders-pipeline/releases/download/latest/zm-scpro-disa-orders-pipeline-all.jar
+    entryClass: zm.gov.moh.hie.scp.StreamingJob
+    parallelism: 3
+    upgradeMode: stateless
+    state: running
+    args:
+      - "--jdbc.url=jdbc:postgresql://172.16.20.9:35616/hie_manager"
+      - "--kafka.group.id=scpro-disa-orders-pipeline"

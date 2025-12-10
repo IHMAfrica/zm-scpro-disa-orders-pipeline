@@ -1,0 +1,3 @@
+defaultNamespace: flink-jobs
+labels:
+  app: flink-scpro-disa-orders-session-job
