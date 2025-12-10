@@ -87,4 +87,3 @@ Requirements for deployment:
 
 ## License
 
-See LICENSE file in parent repository
