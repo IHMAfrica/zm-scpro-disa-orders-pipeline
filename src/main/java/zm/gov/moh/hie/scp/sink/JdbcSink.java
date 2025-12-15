@@ -98,8 +98,8 @@ public class JdbcSink {
                 upsertSql,
                 stmtBuilder,
                 JdbcExecutionOptions.builder()
-                        .withBatchIntervalMs(2000)
-                        .withBatchSize(50)
+                        .withBatchIntervalMs(200)
+                        .withBatchSize(1000)
                         .withMaxRetries(5)
                         .build(),
                 new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
