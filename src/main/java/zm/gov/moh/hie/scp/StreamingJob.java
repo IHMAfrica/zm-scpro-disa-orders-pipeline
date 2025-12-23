@@ -71,7 +71,7 @@ public class StreamingJob {
                 "  INSERT INTO data.message (message_type, data) VALUES ('OML_O21', ?) RETURNING id " +
                 ") " +
                 "INSERT INTO crt.lab_order (id, order_id, message_ref_id, hmis_code, order_date, order_time, sending_application, test_id) " +
-                "SELECT inserted_message.id, ?, ?, ?, ?, ?, ?, COALESCE((SELECT test_id FROM ref.lab_test WHERE loinc = ? LIMIT 1), 1) " +
+                "SELECT inserted_message.id, ?, ?, ?, ?::date, ?::time, ?, COALESCE((SELECT test_id FROM ref.lab_test WHERE loinc = ? LIMIT 1), 1) " +
                 "FROM inserted_message " +
                 "ON CONFLICT (message_ref_id) DO UPDATE SET " +
                 "order_id = EXCLUDED.order_id, " +
@@ -90,7 +90,6 @@ public class StreamingJob {
                 200,       // batchIntervalMs
                 5          // maxRetries
         )).name("Postgres JDBC -> Lab Order Sink");
-
         // Execute the pipeline
         env.execute("Kafka to Postgres SC / Disa Lab Orders Pipeline");
     }
