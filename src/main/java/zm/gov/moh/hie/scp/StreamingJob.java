@@ -67,12 +67,8 @@ public class StreamingJob {
 
         // Create JDBC Sink using CTE to insert into data.message first, then crt.lab_order
         // Using deferred sink to avoid DNS resolution errors during operator initialization
-        final String upsertSql = "WITH inserted_message AS (" +
-                "  INSERT INTO data.message (message_type, data) VALUES ('OML_O21', ?) RETURNING id " +
-                ") " +
-                "INSERT INTO crt.lab_order (id, order_id, message_ref_id, mfl_code, order_date, order_time, sending_application, test_id) " +
-                "SELECT inserted_message.id, ?, ?, ?, ?::date, ?::time, ?, COALESCE((SELECT test_id FROM ref.lab_test WHERE loinc = ? LIMIT 1), 1) " +
-                "FROM inserted_message " +
+        final String upsertSql = "INSERT INTO crt.lab_order (order_id, message_ref_id, mfl_code, order_date, order_time, sending_application, test_id) " +
+                "VALUES (?, ?, ?, ?::date, ?::time, ?, COALESCE((SELECT test_id FROM ref.lab_test WHERE loinc = ? LIMIT 1), 1)) " +
                 "ON CONFLICT (message_ref_id) DO UPDATE SET " +
                 "order_id = EXCLUDED.order_id, " +
                 "mfl_code = EXCLUDED.mfl_code, " +
