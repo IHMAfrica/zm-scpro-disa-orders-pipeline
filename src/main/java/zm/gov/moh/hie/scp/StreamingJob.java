@@ -70,8 +70,8 @@ public class StreamingJob {
                 .filter(order -> {
                     String mflCode = order.getMflCode();
                     if (mflCode == null || mflCode.isEmpty() || mflCode.length() != 4) {
-                        LOG.warn("Filtered out LabOrder with invalid MFL code (not 4 digits). mflCode={}, messageRefId={}",
-                                mflCode, order.getMessageRefId());
+                        LOG.warn("Filtered out LabOrder with invalid MFL code. mflCode='{}' (length={}), messageRefId={}",
+                                mflCode, mflCode != null ? mflCode.length() : "null", order.getMessageRefId());
                         return false;
                     }
                     return true;
