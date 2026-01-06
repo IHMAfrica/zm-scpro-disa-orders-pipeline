@@ -65,25 +65,6 @@ public class StreamingJob {
                 })
                 .name("Filter Null Values").disableChaining();
 
-        // Filter out messages with facility codes longer than 4 digits (reject non-MFL codes)
-        DataStream<LabOrder> mflFilteredStream = filteredStream
-                .filter(order -> {
-                    String facilityCode = order.getMflCode();
-                    if (facilityCode == null || facilityCode.isEmpty()) {
-                        LOG.warn("Filtered out LabOrder with null or empty MFL code. messageRefId={}",
-                            order.getMessageRefId());
-                        return false;
-                    }
-                    if (facilityCode.length() > 4) {
-                        LOG.warn("Filtered out LabOrder with invalid MFL code (length > 4). mflCode={}, length={}, messageRefId={}",
-                            facilityCode, facilityCode.length(), order.getMessageRefId());
-                        return false;
-                    }
-                    LOG.debug("Accepted LabOrder with valid MFL code: {}", facilityCode);
-                    return true;
-                })
-                .name("Filter Non-MFL Codes").disableChaining();
-
         // Create JDBC Sink using CTE to insert into data.message first, then crt.lab_order
         // Using deferred sink to avoid DNS resolution errors during operator initialization
         final String upsertSql = "WITH inserted_message AS (" +
@@ -100,7 +81,7 @@ public class StreamingJob {
                 "sending_application = EXCLUDED.sending_application, " +
                 "test_id = EXCLUDED.test_id";
 
-        mflFilteredStream.addSink(new DeferredJdbcSink(
+        filteredStream.addSink(new DeferredJdbcSink(
                 cfg.jdbcUrl,
                 cfg.jdbcUser,
                 cfg.jdbcPassword,
