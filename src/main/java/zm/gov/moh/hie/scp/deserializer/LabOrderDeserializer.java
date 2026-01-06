@@ -93,8 +93,7 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
                     orderTime,
                     messageRefId,
                     sendingApplication != null ? sendingApplication : "",
-                    loinc,  // pass LOINC for SQL lookup
-                    omlString  // pass raw message data
+                    loinc  // pass LOINC for SQL lookup
             );
 
             LOG.info("Successfully deserialized LabOrder: orderId={}, messageRefId={}, mflCode={}, sendingApp={}, orderDate={}, orderTime={}",

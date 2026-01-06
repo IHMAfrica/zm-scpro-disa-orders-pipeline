@@ -13,11 +13,10 @@ public class LabOrder implements Serializable {
     private String messageRefId;
     private String sendingApplication;
     private String loinc;
-    private String messageData;
 
     public LabOrder() {}
 
-    public LabOrder(Header header, String mflCode, String orderId, Short testId, String orderDate, String orderTime, String messageRefId, String sendingApplication, String loinc, String messageData) {
+    public LabOrder(Header header, String mflCode, String orderId, Short testId, String orderDate, String orderTime, String messageRefId, String sendingApplication, String loinc) {
         this.header = header;
         this.mflCode = mflCode;
         this.orderId = orderId;
@@ -27,7 +26,6 @@ public class LabOrder implements Serializable {
         this.messageRefId = messageRefId;
         this.sendingApplication = sendingApplication;
         this.loinc = loinc;
-        this.messageData = messageData;
     }
 
     public Header getHeader() {
@@ -100,14 +98,6 @@ public class LabOrder implements Serializable {
 
     public void setLoinc(String loinc) {
         this.loinc = loinc;
-    }
-
-    public String getMessageData() {
-        return messageData;
-    }
-
-    public void setMessageData(String messageData) {
-        this.messageData = messageData;
     }
 
     @Override
