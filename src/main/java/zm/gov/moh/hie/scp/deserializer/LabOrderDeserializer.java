@@ -57,11 +57,19 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
                 LOG.debug("Could not extract sending application from MSH-3");
             }
 
-            // Extract MFL code from MSH-4.2 (UniversalID component)
+            // Extract MFL code from MSH-4 (try multiple approaches)
             String mflCode = null;
             try {
-                mflCode = omlMsg.getMSH().getSendingFacility().getComponent(1).toString();
-                if (mflCode == null || mflCode.isEmpty() || mflCode.equals("\"\"")) {
+                // Try component access first
+                Object component = omlMsg.getMSH().getSendingFacility().getComponent(1);
+                if (component != null) {
+                    String compStr = component.toString().trim();
+                    if (!compStr.isEmpty() && !compStr.equals("\"\"")) {
+                        mflCode = compStr;
+                    }
+                }
+                // Fallback: use UniversalID
+                if (mflCode == null || mflCode.isEmpty()) {
                     mflCode = omlMsg.getMSH().getSendingFacility().getUniversalID().getValue();
                 }
             } catch (Exception e) {
