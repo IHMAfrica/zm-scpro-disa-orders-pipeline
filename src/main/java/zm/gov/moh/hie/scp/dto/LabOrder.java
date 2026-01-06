@@ -5,7 +5,7 @@ import java.io.Serializable;
 public class LabOrder implements Serializable {
     private static final long serialVersionUID = 1L;
     private Header header;
-    private String hmisCode;
+    private String mflCode;
     private String orderId;
     private Short testId;
     private String orderDate;
@@ -16,9 +16,9 @@ public class LabOrder implements Serializable {
 
     public LabOrder() {}
 
-    public LabOrder(Header header, String hmisCode, String orderId, Short testId, String orderDate, String orderTime, String messageRefId, String sendingApplication, String loinc) {
+    public LabOrder(Header header, String mflCode, String orderId, Short testId, String orderDate, String orderTime, String messageRefId, String sendingApplication, String loinc) {
         this.header = header;
-        this.hmisCode = hmisCode;
+        this.mflCode = mflCode;
         this.orderId = orderId;
         this.testId = testId;
         this.orderDate = orderDate;
@@ -36,12 +36,12 @@ public class LabOrder implements Serializable {
         this.header = header;
     }
 
-    public String getHmisCode() {
-        return hmisCode;
+    public String getMflCode() {
+        return mflCode;
     }
 
-    public void setHmisCode(String hmisCode) {
-        this.hmisCode = hmisCode;
+    public void setMflCode(String mflCode) {
+        this.mflCode = mflCode;
     }
 
     public String getOrderId() {
@@ -104,7 +104,7 @@ public class LabOrder implements Serializable {
     public String toString() {
         return "LabOrder{" +
                 "header=" + header +
-                ", hmisCode='" + hmisCode + '\'' +
+                ", mflCode='" + mflCode + '\'' +
                 ", orderId='" + orderId + '\'' +
                 ", testId=" + testId +
                 ", orderDate='" + orderDate + '\'' +

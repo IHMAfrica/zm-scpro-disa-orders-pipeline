@@ -127,7 +127,7 @@ public class DeferredJdbcSink extends RichSinkFunction<LabOrder> {
                 ps.setString(1, element.getMessageRefId());  // data for data.message
                 ps.setString(2, element.getOrderId());
                 ps.setString(3, element.getMessageRefId());
-                ps.setString(4, element.getHmisCode());
+                ps.setString(4, element.getMflCode());
                 ps.setString(5, element.getOrderDate());
                 ps.setString(6, element.getOrderTime());
                 ps.setString(7, element.getSendingApplication());

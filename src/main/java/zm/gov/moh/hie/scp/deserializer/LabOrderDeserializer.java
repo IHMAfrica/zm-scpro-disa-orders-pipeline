@@ -57,12 +57,12 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
                 LOG.debug("Could not extract sending application from MSH-3");
             }
 
-            // Extract HMIS code / facility (MSH-4 Universal ID)
-            String hmisCode = null;
+            // Extract MFL code / facility (MSH-4 Universal ID)
+            String mflCode = null;
             try {
-                hmisCode = omlMsg.getMSH().getSendingFacility().getUniversalID().getValue();
+                mflCode = omlMsg.getMSH().getSendingFacility().getUniversalID().getValue();
             } catch (Exception e) {
-                LOG.debug("Could not extract HMIS code from MSH-4");
+                LOG.debug("Could not extract MFL code from MSH-4");
             }
 
             // Extract order ID (ORC-2 Placer Order Number)
@@ -86,7 +86,7 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
             // Create LabOrder DTO
             LabOrder labOrder = new LabOrder(
                     null,  // header will be null, not needed for simple upsert
-                    hmisCode != null ? hmisCode : "",
+                    mflCode != null ? mflCode : "",
                     orderId,
                     null,  // testId will be looked up in SQL from LOINC code
                     orderDate,
@@ -96,8 +96,8 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
                     loinc  // pass LOINC for SQL lookup
             );
 
-            LOG.info("Successfully deserialized LabOrder: orderId={}, messageRefId={}, hmisCode={}, sendingApp={}, orderDate={}, orderTime={}",
-                    orderId, messageRefId, hmisCode, sendingApplication, orderDate, orderTime);
+            LOG.info("Successfully deserialized LabOrder: orderId={}, messageRefId={}, mflCode={}, sendingApp={}, orderDate={}, orderTime={}",
+                    orderId, messageRefId, mflCode, sendingApplication, orderDate, orderTime);
             return labOrder;
 
         } catch (Exception e) {

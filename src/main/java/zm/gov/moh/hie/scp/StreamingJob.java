@@ -65,23 +65,42 @@ public class StreamingJob {
                 })
                 .name("Filter Null Values").disableChaining();
 
+        // Filter out messages with facility codes longer than 4 digits (reject non-MFL codes)
+        DataStream<LabOrder> mflFilteredStream = filteredStream
+                .filter(order -> {
+                    String facilityCode = order.getMflCode();
+                    if (facilityCode == null || facilityCode.isEmpty()) {
+                        LOG.warn("Filtered out LabOrder with null or empty MFL code. messageRefId={}",
+                            order.getMessageRefId());
+                        return false;
+                    }
+                    if (facilityCode.length() > 4) {
+                        LOG.warn("Filtered out LabOrder with invalid MFL code (length > 4). mflCode={}, length={}, messageRefId={}",
+                            facilityCode, facilityCode.length(), order.getMessageRefId());
+                        return false;
+                    }
+                    LOG.debug("Accepted LabOrder with valid MFL code: {}", facilityCode);
+                    return true;
+                })
+                .name("Filter Non-MFL Codes").disableChaining();
+
         // Create JDBC Sink using CTE to insert into data.message first, then crt.lab_order
         // Using deferred sink to avoid DNS resolution errors during operator initialization
         final String upsertSql = "WITH inserted_message AS (" +
                 "  INSERT INTO data.message (message_type, data) VALUES ('OML_O21', ?) RETURNING id " +
                 ") " +
-                "INSERT INTO crt.lab_order (id, order_id, message_ref_id, hmis_code, order_date, order_time, sending_application, test_id) " +
+                "INSERT INTO crt.lab_order (id, order_id, message_ref_id, mfl_code, order_date, order_time, sending_application, test_id) " +
                 "SELECT inserted_message.id, ?, ?, ?, ?::date, ?::time, ?, COALESCE((SELECT test_id FROM ref.lab_test WHERE loinc = ? LIMIT 1), 1) " +
                 "FROM inserted_message " +
                 "ON CONFLICT (message_ref_id) DO UPDATE SET " +
                 "order_id = EXCLUDED.order_id, " +
-                "hmis_code = EXCLUDED.hmis_code, " +
+                "mfl_code = EXCLUDED.mfl_code, " +
                 "order_date = EXCLUDED.order_date, " +
                 "order_time = EXCLUDED.order_time, " +
                 "sending_application = EXCLUDED.sending_application, " +
                 "test_id = EXCLUDED.test_id";
 
-        filteredStream.addSink(new DeferredJdbcSink(
+        mflFilteredStream.addSink(new DeferredJdbcSink(
                 cfg.jdbcUrl,
                 cfg.jdbcUser,
                 cfg.jdbcPassword,
