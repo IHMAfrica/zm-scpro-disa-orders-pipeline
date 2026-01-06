@@ -65,7 +65,7 @@ public class StreamingJob {
                 })
                 .name("Filter Null Values").disableChaining();
 
-        // Filter messages with non-MFL facility codes (reject HMIS codes which are > 4 digits)
+        // Filter messages with non-MFL facility codes (accept 4 digit MFL codes, reject HMIS codes)
         DataStream<LabOrder> mflFilteredStream = filteredStream
                 .filter(order -> {
                     String mflCode = order.getMflCode();
@@ -80,8 +80,17 @@ public class StreamingJob {
 
         // Create JDBC Sink
         // Using deferred sink to avoid DNS resolution errors during operator initialization
-        final String upsertSql = "INSERT INTO crt.lab_order (order_id, message_ref_id, mfl_code, order_date, order_time, sending_application, test_id) " +
-                "VALUES (?, ?, ?, ?::date, ?::time, ?, COALESCE((SELECT test_id FROM ref.lab_test WHERE loinc = ? LIMIT 1), 1)) " +
+        // Insert into data.message first, then reference its auto-generated ID in lab_order
+        final String upsertSql = "WITH inserted_message AS (" +
+                "  INSERT INTO data.message (message_type, data) VALUES ('OML_O21', ?) " +
+                "  ON CONFLICT DO NOTHING " +
+                "  RETURNING id " +
+                "), " +
+                "message_id AS (" +
+                "  SELECT COALESCE((SELECT id FROM inserted_message), (SELECT id FROM data.message WHERE message_type = 'OML_O21' LIMIT 1)) AS id " +
+                ") " +
+                "INSERT INTO crt.lab_order (id, order_id, message_ref_id, mfl_code, order_date, order_time, sending_application, test_id) " +
+                "SELECT (SELECT id FROM message_id), ?, ?, ?, ?::date, ?::time, ?, COALESCE((SELECT test_id FROM ref.lab_test WHERE loinc = ? LIMIT 1), 1) " +
                 "ON CONFLICT (message_ref_id) DO UPDATE SET " +
                 "order_id = EXCLUDED.order_id, " +
                 "mfl_code = EXCLUDED.mfl_code, " +
