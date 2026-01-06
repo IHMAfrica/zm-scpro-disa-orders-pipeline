@@ -65,7 +65,20 @@ public class StreamingJob {
                 })
                 .name("Filter Null Values").disableChaining();
 
-        // Create JDBC Sink using CTE to insert into data.message first, then crt.lab_order
+        // Filter messages with non-MFL facility codes (reject HMIS codes which are > 4 digits)
+        DataStream<LabOrder> mflFilteredStream = filteredStream
+                .filter(order -> {
+                    String mflCode = order.getMflCode();
+                    if (mflCode == null || mflCode.isEmpty() || mflCode.length() != 4) {
+                        LOG.warn("Filtered out LabOrder with invalid MFL code (not 4 digits). mflCode={}, messageRefId={}",
+                                mflCode, order.getMessageRefId());
+                        return false;
+                    }
+                    return true;
+                })
+                .name("Filter Non-MFL Codes").disableChaining();
+
+        // Create JDBC Sink
         // Using deferred sink to avoid DNS resolution errors during operator initialization
         final String upsertSql = "INSERT INTO crt.lab_order (order_id, message_ref_id, mfl_code, order_date, order_time, sending_application, test_id) " +
                 "VALUES (?, ?, ?, ?::date, ?::time, ?, COALESCE((SELECT test_id FROM ref.lab_test WHERE loinc = ? LIMIT 1), 1)) " +
@@ -77,7 +90,7 @@ public class StreamingJob {
                 "sending_application = EXCLUDED.sending_application, " +
                 "test_id = EXCLUDED.test_id";
 
-        filteredStream.addSink(new DeferredJdbcSink(
+        mflFilteredStream.addSink(new DeferredJdbcSink(
                 cfg.jdbcUrl,
                 cfg.jdbcUser,
                 cfg.jdbcPassword,
