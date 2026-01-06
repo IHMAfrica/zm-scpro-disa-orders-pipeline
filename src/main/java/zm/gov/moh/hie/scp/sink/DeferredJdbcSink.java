@@ -124,14 +124,13 @@ public class DeferredJdbcSink extends RichSinkFunction<LabOrder> {
     private void executeBatch() throws Exception {
         try (PreparedStatement ps = connection.prepareStatement(upsertSql)) {
             for (LabOrder element : batch) {
-                ps.setString(1, element.getMessageRefId());  // data for data.message
-                ps.setString(2, element.getOrderId());
-                ps.setString(3, element.getMessageRefId());
-                ps.setString(4, element.getMflCode());
-                ps.setString(5, element.getOrderDate());
-                ps.setString(6, element.getOrderTime());
-                ps.setString(7, element.getSendingApplication());
-                ps.setString(8, element.getLoinc());
+                ps.setString(1, element.getOrderId());
+                ps.setString(2, element.getMessageRefId());
+                ps.setString(3, element.getMflCode());
+                ps.setString(4, element.getOrderDate());
+                ps.setString(5, element.getOrderTime());
+                ps.setString(6, element.getSendingApplication());
+                ps.setString(7, element.getLoinc());
                 ps.addBatch();
             }
             int[] result = ps.executeBatch();
