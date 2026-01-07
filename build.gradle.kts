@@ -44,6 +44,10 @@ dependencies {
     compileOnly("org.apache.flink:flink-table-api-java-bridge:${property("flinkVersion")}")
     compileOnly("org.apache.flink:flink-json:${property("flinkVersion")}")
 
+    // Flink APIs for testing
+    testImplementation("org.apache.flink:flink-streaming-java:${property("flinkVersion")}")
+    testImplementation("org.apache.flink:flink-connector-base:${property("flinkVersion")}")
+
     // External connectors – include unless your cluster lib/ already has matching versions
     compileOnly("org.apache.flink:flink-connector-kafka:3.3.0-1.20")
     compileOnly("org.apache.flink:flink-connector-jdbc:3.3.0-1.20")

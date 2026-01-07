@@ -58,7 +58,8 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
             }
 
             // Extract MFL code from MSH-4 with robust fallback strategies
-            String mflCode = extractMflCodeRobust(omlMsg, omlString);
+            String mflCode = extractMflCodeRobust(omlString);
+            
 
             // Extract order ID (ORC-2 Placer Order Number)
             String orderId = extractOrderIdFromMessage(omlString);
@@ -195,14 +196,14 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
      *
      * Uses only string parsing - HAPI methods are not reliable for this field.
      */
-    private String extractMflCodeRobust(OML_O21 omlMsg, String rawMessage) {
+    String extractMflCodeRobust(String rawMessage) {
         try {
             String[] lines = rawMessage.split("\r");
             for (String line : lines) {
                 if (line.startsWith("MSH|")) {
                     String[] fields = line.split("\\|");
-                    if (fields.length > 4 && !fields[4].isEmpty()) {
-                        String mshField = fields[4];
+                    if (fields.length > 3 && !fields[3].isEmpty()) {
+                        String mshField = fields[3];
 
                         // MSH-4 format: Name^MFL^Type
                         // Split by ^ to get components
