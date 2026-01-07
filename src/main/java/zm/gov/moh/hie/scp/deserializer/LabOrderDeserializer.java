@@ -58,8 +58,7 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
             }
 
             // Extract MFL code from MSH-4 with robust fallback strategies
-            String mflCode = extractMflCodeRobust(omlString);
-            
+            String mflCode = extractMflCodeRobust(omlMsg);
 
             // Extract order ID (ORC-2 Placer Order Number)
             String orderId = extractOrderIdFromMessage(omlString);
@@ -196,43 +195,7 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
      *
      * Uses only string parsing - HAPI methods are not reliable for this field.
      */
-    String extractMflCodeRobust(String rawMessage) {
-        try {
-            String[] lines = rawMessage.split("\r");
-            for (String line : lines) {
-                if (line.startsWith("MSH|")) {
-                    String[] fields = line.split("\\|");
-                    if (fields.length > 3 && !fields[3].isEmpty()) {
-                        String mshField = fields[3];
-
-                        // MSH-4 format: Name^MFL^Type
-                        // Split by ^ to get components
-                        String[] components = mshField.split("\\^");
-
-                        // Extract component[1] which should be the MFL code
-                        if (components.length >= 2) {
-                            String mflCode = components[1].trim();
-
-                            // Accept 4-digit codes (valid MFL codes)
-                            if (mflCode.length() == 4 && mflCode.matches("\\d{4}")) {
-                                return mflCode;
-                            }
-
-                            // Also try to find any 4-digit number in the field as fallback
-                            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\d{4}");
-                            java.util.regex.Matcher matcher = pattern.matcher(mshField);
-                            if (matcher.find()) {
-                                return matcher.group();
-                            }
-                        }
-                    }
-                    break;
-                }
-            }
-        } catch (Exception e) {
-            LOG.debug("Error extracting MFL code: {}", e.getMessage());
-        }
-
-        return null;
+    String extractMflCodeRobust( OML_O21 omlMsg) {
+        return omlMsg.getMSH().getSendingFacility().getNamespaceID().getValue();
     }
 }
