@@ -57,45 +57,8 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
                 LOG.debug("Could not extract sending application from MSH-3");
             }
 
-            // Extract MFL code from MSH-4 (UniversalID component)
-            String mflCode = null;
-            try {
-                // Log raw MSH-4 field for debugging
-                LOG.warn("DEBUG: Raw MSH-4 encoded value: '{}'", omlMsg.getMSH().getSendingFacility().encode());
-
-                // Try to access all components to see what HAPI returns
-                String namespaceId = null;
-                String universalId = null;
-                String universalIdType = null;
-
-                try {
-                    namespaceId = omlMsg.getMSH().getSendingFacility().getNamespaceID().getValue();
-                } catch (Exception e) {
-                    LOG.debug("Failed to get NamespaceID: {}", e.getMessage());
-                }
-
-                try {
-                    universalId = omlMsg.getMSH().getSendingFacility().getUniversalID().getValue();
-                } catch (Exception e) {
-                    LOG.debug("Failed to get UniversalID: {}", e.getMessage());
-                }
-
-                try {
-                    universalIdType = omlMsg.getMSH().getSendingFacility().getUniversalIDType().getValue();
-                } catch (Exception e) {
-                    LOG.debug("Failed to get UniversalIDType: {}", e.getMessage());
-                }
-
-                LOG.warn("DEBUG: MSH-4 components - NamespaceID='{}', UniversalID='{}', UniversalIDType='{}'",
-                        namespaceId, universalId, universalIdType);
-
-                mflCode = universalId;
-                LOG.warn("DEBUG: Extracted MFL code from MSH-4 UniversalID: '{}' (length={})",
-                        mflCode, mflCode != null ? mflCode.length() : "null");
-            } catch (Exception e) {
-                LOG.warn("DEBUG: Exception extracting MFL code from MSH-4: {} - {}",
-                        e.getClass().getSimpleName(), e.getMessage(), e);
-            }
+            // Extract MFL code from MSH-4 with robust fallback strategies
+            String mflCode = extractMflCodeRobust(omlMsg, omlString);
 
             // Extract order ID (ORC-2 Placer Order Number)
             String orderId = extractOrderIdFromMessage(omlString);
@@ -128,7 +91,7 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
                     loinc  // pass LOINC for SQL lookup
             );
 
-            LOG.warn("DEBUG: Successfully deserialized LabOrder: orderId={}, messageRefId={}, mflCode={}, sendingApp={}, orderDate={}, orderTime={}",
+            LOG.info("Successfully deserialized LabOrder: orderId={}, messageRefId={}, mflCode={}, sendingApp={}, orderDate={}, orderTime={}",
                     orderId, messageRefId, mflCode, sendingApplication, orderDate, orderTime);
             return labOrder;
 
@@ -224,5 +187,74 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
     @Override
     public TypeInformation<LabOrder> getProducedType() {
         return TypeInformation.of(LabOrder.class);
+    }
+
+    /**
+     * Extract MFL code from MSH-4 with robust fallback strategies.
+     * Handles cases where HAPI parsing may return unexpected values.
+     *
+     * Tier 1: Try HAPI getUniversalID() (standard approach)
+     * Tier 2: Try alternative HAPI accessor (getHd2_UniversalID)
+     * Tier 3: Manual string parsing of MSH-4 field (fallback)
+     */
+    private String extractMflCodeRobust(OML_O21 omlMsg, String rawMessage) {
+        // Tier 1: Try HAPI getUniversalID()
+        try {
+            String mflCode = omlMsg.getMSH().getSendingFacility().getUniversalID().getValue();
+            if (mflCode != null && !mflCode.isEmpty() && mflCode.length() == 4) {
+                LOG.debug("MFL code extracted via HAPI UniversalID: {}", mflCode);
+                return mflCode;
+            }
+            if (mflCode != null && !mflCode.isEmpty()) {
+                LOG.debug("HAPI UniversalID returned value but wrong length: '{}' (length={})", mflCode, mflCode.length());
+            }
+        } catch (Exception e) {
+            LOG.debug("HAPI UniversalID extraction failed: {}", e.getMessage());
+        }
+
+        // Tier 2: Try alternative HAPI accessor (getHd2_UniversalID)
+        try {
+            String mflCode = omlMsg.getMSH().getSendingFacility().getHd2_UniversalID().getValue();
+            if (mflCode != null && !mflCode.isEmpty() && mflCode.length() == 4) {
+                LOG.debug("MFL code extracted via HAPI Hd2_UniversalID: {}", mflCode);
+                return mflCode;
+            }
+            if (mflCode != null && !mflCode.isEmpty()) {
+                LOG.debug("HAPI Hd2_UniversalID returned value but wrong length: '{}' (length={})", mflCode, mflCode.length());
+            }
+        } catch (Exception e) {
+            LOG.debug("HAPI Hd2_UniversalID extraction failed: {}", e.getMessage());
+        }
+
+        // Tier 3: Manual string parsing of MSH-4
+        // MSH-4 format: Name^MFL^Type (e.g., "Chelstone Zonal Health Centre^3886^URI")
+        try {
+            String[] lines = rawMessage.split("\r");
+            for (String line : lines) {
+                if (line.startsWith("MSH|")) {
+                    String[] fields = line.split("\\|");
+                    if (fields.length > 4 && !fields[4].isEmpty()) {
+                        String mshField = fields[4];
+                        // MSH-4 format: Name^MFL^Type
+                        String[] components = mshField.split("\\^");
+                        if (components.length >= 2 && !components[1].isEmpty()) {
+                            String mflCode = components[1].trim();
+                            if (mflCode.length() == 4) {
+                                LOG.debug("MFL code extracted via manual MSH-4 parsing: {}", mflCode);
+                                return mflCode;
+                            } else {
+                                LOG.debug("Manual parsing found value but wrong length: '{}' (length={})", mflCode, mflCode.length());
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            LOG.debug("Manual MSH-4 parsing failed: {}", e.getMessage());
+        }
+
+        LOG.debug("Failed to extract valid 4-digit MFL code using all methods");
+        return null;
     }
 }
