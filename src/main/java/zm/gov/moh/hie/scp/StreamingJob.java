@@ -65,15 +65,16 @@ public class StreamingJob {
                 })
                 .name("Filter Null Values").disableChaining();
 
-        // Temporarily pass all orders through without MFL filtering to diagnose the issue
+        // Filter messages with non-MFL facility codes (accept 4 digit MFL codes, reject HMIS codes)
         DataStream<LabOrder> mflFilteredStream = filteredStream
-                .map(order -> {
-                    LOG.warn("DIAGNOSTIC: Received LabOrder - mflCode='{}' (length={}), orderId={}, messageRefId={}",
-                            order.getMflCode(),
-                            order.getMflCode() != null ? order.getMflCode().length() : "null",
-                            order.getOrderId(),
-                            order.getMessageRefId());
-                    return order;
+                .filter(order -> {
+                    String mflCode = order.getMflCode();
+                    if (mflCode == null || mflCode.isEmpty() || mflCode.length() != 4) {
+                        LOG.warn("Filtered out LabOrder with invalid MFL code. mflCode='{}' (length={}), messageRefId={}",
+                                mflCode, mflCode != null ? mflCode.length() : "null", order.getMessageRefId());
+                        return false;
+                    }
+                    return true;
                 })
                 .name("Filter Non-MFL Codes").disableChaining();
 

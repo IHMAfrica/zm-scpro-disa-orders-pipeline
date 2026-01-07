@@ -190,45 +190,12 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
     }
 
     /**
-     * Extract MFL code from MSH-4 with robust fallback strategies.
-     * Handles cases where HAPI parsing may return unexpected values.
+     * Extract MFL code from MSH-4 by direct string parsing.
+     * MSH-4 format: Name^MFL^Type (e.g., "Chelstone Zonal Health Centre^3886^URI")
      *
-     * Tier 1: Try HAPI getUniversalID() (standard approach)
-     * Tier 2: Try alternative HAPI accessor (getHd2_UniversalID)
-     * Tier 3: Manual string parsing of MSH-4 field (fallback)
-     * Tier 4: Try extracting first 4-digit sequence from facility field
+     * Uses only string parsing - HAPI methods are not reliable for this field.
      */
     private String extractMflCodeRobust(OML_O21 omlMsg, String rawMessage) {
-        // Tier 1: Try HAPI getUniversalID()
-        try {
-            String mflCode = omlMsg.getMSH().getSendingFacility().getUniversalID().getValue();
-            if (mflCode != null && !mflCode.isEmpty() && mflCode.length() == 4) {
-                LOG.info("MFL code extracted via HAPI UniversalID: {}", mflCode);
-                return mflCode;
-            }
-            if (mflCode != null && !mflCode.isEmpty()) {
-                LOG.info("HAPI UniversalID returned: '{}' (length={})", mflCode, mflCode.length());
-            }
-        } catch (Exception e) {
-            LOG.info("HAPI UniversalID failed: {}", e.getMessage());
-        }
-
-        // Tier 2: Try alternative HAPI accessor (getHd2_UniversalID)
-        try {
-            String mflCode = omlMsg.getMSH().getSendingFacility().getHd2_UniversalID().getValue();
-            if (mflCode != null && !mflCode.isEmpty() && mflCode.length() == 4) {
-                LOG.info("MFL code extracted via HAPI Hd2_UniversalID: {}", mflCode);
-                return mflCode;
-            }
-            if (mflCode != null && !mflCode.isEmpty()) {
-                LOG.info("HAPI Hd2_UniversalID returned: '{}' (length={})", mflCode, mflCode.length());
-            }
-        } catch (Exception e) {
-            LOG.info("HAPI Hd2_UniversalID failed: {}", e.getMessage());
-        }
-
-        // Tier 3: Manual string parsing of MSH-4
-        // MSH-4 format: Name^MFL^Type (e.g., "Chelstone Zonal Health Centre^3886^URI")
         try {
             String[] lines = rawMessage.split("\r");
             for (String line : lines) {
@@ -236,38 +203,35 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
                     String[] fields = line.split("\\|");
                     if (fields.length > 4 && !fields[4].isEmpty()) {
                         String mshField = fields[4];
-                        LOG.info("MSH-4 raw field: '{}'", mshField);
 
                         // MSH-4 format: Name^MFL^Type
+                        // Split by ^ to get components
                         String[] components = mshField.split("\\^");
-                        LOG.info("MSH-4 has {} components", components.length);
 
-                        if (components.length >= 2 && !components[1].isEmpty()) {
+                        // Extract component[1] which should be the MFL code
+                        if (components.length >= 2) {
                             String mflCode = components[1].trim();
-                            LOG.info("Component[1] value: '{}'", mflCode);
+
+                            // Accept 4-digit codes (valid MFL codes)
                             if (mflCode.length() == 4 && mflCode.matches("\\d{4}")) {
-                                LOG.info("MFL code extracted via manual MSH-4 parsing: {}", mflCode);
                                 return mflCode;
                             }
-                        }
 
-                        // Tier 4: Try extracting any 4-digit sequence from the facility field
-                        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\b(\\d{4})\\b");
-                        java.util.regex.Matcher matcher = pattern.matcher(mshField);
-                        if (matcher.find()) {
-                            String mflCode = matcher.group(1);
-                            LOG.info("MFL code extracted via regex from MSH-4: {}", mflCode);
-                            return mflCode;
+                            // Also try to find any 4-digit number in the field as fallback
+                            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\d{4}");
+                            java.util.regex.Matcher matcher = pattern.matcher(mshField);
+                            if (matcher.find()) {
+                                return matcher.group();
+                            }
                         }
                     }
                     break;
                 }
             }
         } catch (Exception e) {
-            LOG.info("Manual MSH-4 parsing exception: {}", e.getMessage(), e);
+            LOG.debug("Error extracting MFL code: {}", e.getMessage());
         }
 
-        LOG.warn("Failed to extract valid 4-digit MFL code using all methods");
         return null;
     }
 }
