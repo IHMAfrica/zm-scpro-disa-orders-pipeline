@@ -60,10 +60,41 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
             // Extract MFL code from MSH-4 (UniversalID component)
             String mflCode = null;
             try {
-                mflCode = omlMsg.getMSH().getSendingFacility().getUniversalID().getValue();
-                LOG.debug("Extracted MFL code from MSH-4: '{}'", mflCode);
+                // Log raw MSH-4 field for debugging
+                LOG.warn("DEBUG: Raw MSH-4 encoded value: '{}'", omlMsg.getMSH().getSendingFacility().encode());
+
+                // Try to access all components to see what HAPI returns
+                String namespaceId = null;
+                String universalId = null;
+                String universalIdType = null;
+
+                try {
+                    namespaceId = omlMsg.getMSH().getSendingFacility().getNamespaceID().getValue();
+                } catch (Exception e) {
+                    LOG.debug("Failed to get NamespaceID: {}", e.getMessage());
+                }
+
+                try {
+                    universalId = omlMsg.getMSH().getSendingFacility().getUniversalID().getValue();
+                } catch (Exception e) {
+                    LOG.debug("Failed to get UniversalID: {}", e.getMessage());
+                }
+
+                try {
+                    universalIdType = omlMsg.getMSH().getSendingFacility().getUniversalIDType().getValue();
+                } catch (Exception e) {
+                    LOG.debug("Failed to get UniversalIDType: {}", e.getMessage());
+                }
+
+                LOG.warn("DEBUG: MSH-4 components - NamespaceID='{}', UniversalID='{}', UniversalIDType='{}'",
+                        namespaceId, universalId, universalIdType);
+
+                mflCode = universalId;
+                LOG.warn("DEBUG: Extracted MFL code from MSH-4 UniversalID: '{}' (length={})",
+                        mflCode, mflCode != null ? mflCode.length() : "null");
             } catch (Exception e) {
-                LOG.debug("Could not extract MFL code from MSH-4: {}", e.getMessage());
+                LOG.warn("DEBUG: Exception extracting MFL code from MSH-4: {} - {}",
+                        e.getClass().getSimpleName(), e.getMessage(), e);
             }
 
             // Extract order ID (ORC-2 Placer Order Number)
@@ -97,7 +128,7 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
                     loinc  // pass LOINC for SQL lookup
             );
 
-            LOG.info("Successfully deserialized LabOrder: orderId={}, messageRefId={}, mflCode={}, sendingApp={}, orderDate={}, orderTime={}",
+            LOG.warn("DEBUG: Successfully deserialized LabOrder: orderId={}, messageRefId={}, mflCode={}, sendingApp={}, orderDate={}, orderTime={}",
                     orderId, messageRefId, mflCode, sendingApplication, orderDate, orderTime);
             return labOrder;
 
