@@ -37,12 +37,7 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
             }
 
             // Extract message ID (MSH-10)
-            String messageRefId = null;
-            try {
-                messageRefId = omlMsg.getMSH().getMessageControlID().getValue();
-            } catch (Exception e) {
-                LOG.debug("Could not extract message control ID from MSH-10");
-            }
+            String messageRefId = extractMessageControlId(omlMsg);
 
             if (messageRefId == null || messageRefId.isEmpty()) {
                 LOG.debug("Message control ID is empty, skipping message");
@@ -50,14 +45,9 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
             }
 
             // Extract sending application (MSH-3)
-            String sendingApplication = null;
-            try {
-                sendingApplication = omlMsg.getMSH().getSendingApplication().getNamespaceID().getValue();
-            } catch (Exception e) {
-                LOG.debug("Could not extract sending application from MSH-3");
-            }
+            String sendingApplication = extractSendingApplication(omlMsg);
 
-            // Extract MFL code from MSH-4 with robust fallback strategies
+            // Extract MFL code from MSH-4
             String mflCode = extractMflCodeRobust(omlMsg);
 
             // Extract order ID (ORC-2 Placer Order Number)
@@ -109,22 +99,60 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
         return input;
     }
 
+    /**
+     * Extract Message Control ID from MSH-10 using HAPI.
+     */
+    private String extractMessageControlId(OML_O21 omlMsg) {
+        try {
+            String messageControlId = omlMsg.getMSH().getMessageControlID().getValue();
+            if (messageControlId != null && !messageControlId.isEmpty()) {
+                LOG.debug("Extracted message control ID: {}", messageControlId);
+                return messageControlId;
+            }
+        } catch (Exception e) {
+            LOG.debug("Could not extract message control ID from MSH-10: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Extract Sending Application from MSH-3 using HAPI.
+     */
+    private String extractSendingApplication(OML_O21 omlMsg) {
+        try {
+            String sendingApp = omlMsg.getMSH().getSendingApplication().getNamespaceID().getValue();
+            if (sendingApp != null && !sendingApp.isEmpty()) {
+                LOG.debug("Extracted sending application: {}", sendingApp);
+                return sendingApp;
+            }
+        } catch (Exception e) {
+            LOG.debug("Could not extract sending application from MSH-3: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Extract Order ID from ORC-2 (Placer Order Number) by string parsing.
+     */
     private String extractOrderIdFromMessage(String message) {
-        // Extract order ID from ORC-2 (Placer Order Number)
         String[] lines = message.split("\r");
         for (String line : lines) {
             if (line.startsWith("ORC|")) {
                 String[] fields = line.split("\\|");
                 if (fields.length > 2 && !fields[2].isEmpty()) {
-                    return fields[2].split("\\^")[0];
+                    String orderId = fields[2].split("\\^")[0];
+                    LOG.debug("Extracted order ID: {}", orderId);
+                    return orderId;
                 }
             }
         }
         return null;
     }
 
+    /**
+     * Extract date/time from OBR-7 (Observation Date/Time) by string parsing.
+     */
     private String[] extractDateTimeFromMessage(String message) {
-        // Extract date/time from OBR-7 (Observation Date/Time)
         String[] lines = message.split("\r");
         for (String line : lines) {
             if (line.startsWith("OBR|")) {
@@ -132,14 +160,15 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
                 if (fields.length > 7 && !fields[7].isEmpty()) {
                     try {
                         String dateTimeStr = fields[7];
-                        // Parse YYYYMMDDHHMM format
                         if (dateTimeStr.length() >= 12) {
                             LocalDateTime dt = LocalDateTime.parse(dateTimeStr.substring(0, 12) + "00",
                                     zm.gov.moh.hie.scp.util.DateTimeUtil.DATETIME_DISA_FORMATTER);
-                            return new String[]{
+                            String[] result = new String[]{
                                     dt.format(zm.gov.moh.hie.scp.util.DateTimeUtil.DATE_FORMATTER),
                                     dt.format(zm.gov.moh.hie.scp.util.DateTimeUtil.TIME_FORMATTER)
                             };
+                            LOG.debug("Extracted date/time: {} {}", result[0], result[1]);
+                            return result;
                         }
                     } catch (Exception e) {
                         LOG.debug("Could not parse date/time: {}", fields[7]);
@@ -150,10 +179,10 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
         return null;
     }
 
+    /**
+     * Extract LOINC code from OBR-4 (Universal Service ID) by string parsing.
+     */
     private String extractLoincFromMessage(String message) {
-        // Extract LOINC code from OBR-4 (Universal Service ID)
-        // OBR-4 format: identifier^text^name_of_coding_system^alt_id^alt_text^alt_name_of_coding_system
-        // LOINC code is typically in position 0 or 3 (alternate identifier)
         String[] lines = message.split("\r");
         for (String line : lines) {
             if (line.startsWith("OBR|")) {
@@ -161,14 +190,14 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
                 if (fields.length > 4 && !fields[4].isEmpty()) {
                     try {
                         String obrField = fields[4];
-                        // Split by ^ to get components
                         String[] components = obrField.split("\\^");
-                        // Try to find LOINC code (usually in position 0 or 3)
                         if (components.length > 0 && !components[0].isEmpty()) {
-                            return components[0];  // Return main identifier
+                            LOG.debug("Extracted LOINC code: {}", components[0]);
+                            return components[0];
                         }
                         if (components.length > 3 && !components[3].isEmpty()) {
-                            return components[3];  // Return alternate identifier (LOINC)
+                            LOG.debug("Extracted LOINC code (alternate): {}", components[3]);
+                            return components[3];
                         }
                     } catch (Exception e) {
                         LOG.debug("Could not extract LOINC from OBR-4: {}", fields[4]);
@@ -190,12 +219,40 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
     }
 
     /**
-     * Extract MFL code from MSH-4 by direct string parsing.
-     * MSH-4 format: Name^MFL^Type (e.g., "Chelstone Zonal Health Centre^3886^URI")
+     * Extract MFL code from MSH-4 (SendingFacility) using HAPI.
+     * MSH-4 format: Name^UniversalID^UniversalIDType
      *
-     * Uses only string parsing - HAPI methods are not reliable for this field.
+     * Component structure:
+     * - Component[0] (NamespaceID): Facility name
+     * - Component[1] (UniversalID): 4-digit MFL code
+     * - Component[2] (UniversalIDType): Type identifier (e.g., URI)
      */
-    String extractMflCodeRobust( OML_O21 omlMsg) {
-        return omlMsg.getMSH().getSendingFacility().getNamespaceID().getValue();
+    String extractMflCodeRobust(OML_O21 omlMsg) {
+        try {
+            // Get the SendingFacility field (MSH-4)
+            ca.uhn.hl7v2.model.v25.datatype.HD sendingFacility = omlMsg.getMSH().getSendingFacility();
+
+            if (sendingFacility == null) {
+                LOG.debug("SendingFacility (MSH-4) is null");
+                return null;
+            }
+
+            // Extract UniversalID (component[1]) which contains the 4-digit MFL code
+            try {
+                String mflCode = sendingFacility.getUniversalID().getValue();
+                if (mflCode != null && !mflCode.isEmpty()) {
+                    LOG.debug("Extracted MFL code from UniversalID: {}", mflCode);
+                    return mflCode;
+                }
+            } catch (Exception e) {
+                LOG.debug("Could not extract UniversalID from SendingFacility: {}", e.getMessage());
+            }
+
+        } catch (Exception e) {
+            LOG.debug("Error extracting MFL code from SendingFacility: {}", e.getMessage());
+        }
+
+        LOG.debug("Failed to extract MFL code from MSH-4");
+        return null;
     }
 }
