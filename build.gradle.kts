@@ -34,7 +34,6 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
 
-    implementation("org.apache.httpcomponents:httpclient:4.5.14")
     implementation("ca.uhn.hapi:hapi-structures-v25:2.5.1")
 
 
@@ -44,11 +43,7 @@ dependencies {
     compileOnly("org.apache.flink:flink-table-api-java-bridge:${property("flinkVersion")}")
     compileOnly("org.apache.flink:flink-json:${property("flinkVersion")}")
 
-    // Flink APIs for testing
-    testImplementation("org.apache.flink:flink-streaming-java:${property("flinkVersion")}")
-    testImplementation("org.apache.flink:flink-connector-base:${property("flinkVersion")}")
-
-    // External connectors – include unless your cluster lib/ already has matching versions
+    // External connectors – provided by cluster lib/ directory
     compileOnly("org.apache.flink:flink-connector-kafka:3.3.0-1.20")
     compileOnly("org.apache.flink:flink-connector-jdbc:3.3.0-1.20")
 
@@ -57,7 +52,7 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind:2.19.2")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.19.2")
 
-    // PostgreSQL driver (needed at runtime)
+    // PostgreSQL driver (provided by cluster lib/ directory)
     compileOnly("org.postgresql:postgresql:42.7.4")
 
     // Logging
@@ -79,11 +74,7 @@ tasks.withType<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar> {
         // Keep Jackson fully
         exclude(dependency("com.fasterxml.jackson.core:.*"))
         exclude(dependency("com.fasterxml.jackson.datatype:.*"))
-        // Keep JDBC/ES/Kafka connectors if you ship them
-        exclude(dependency("org.apache.flink:flink-connector-.*"))
     }
-    // Do not include Flink core modules in the fat jar
-    exclude("org/apache/flink/**")
 }
 
 

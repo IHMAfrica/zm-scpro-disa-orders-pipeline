@@ -6,6 +6,7 @@ import ca.uhn.hl7v2.model.v25.message.ORU_R01;
 import ca.uhn.hl7v2.model.v25.segment.MSH;
 import ca.uhn.hl7v2.model.v25.segment.PID;
 import ca.uhn.hl7v2.parser.PipeParser;
+import ca.uhn.hl7v2.validation.impl.NoValidation;
 import zm.gov.moh.hie.scp.dto.Header;
 import zm.gov.moh.hie.scp.dto.Patient;
 
@@ -16,7 +17,9 @@ import java.time.format.DateTimeFormatter;
 public class Hl7Parser {
     public static ORU_R01 toOru021Message(String hl7String) {
         try {
-            Message msg = (new PipeParser()).parse(hl7String);
+            PipeParser parser = new PipeParser();
+            parser.setValidationContext(new NoValidation());
+            Message msg = parser.parse(hl7String);
             return (ORU_R01) msg;
         } catch (Exception ex) {
             System.out.println("Exception when parsing HL7 ORU Message: " + ex.getMessage());
@@ -26,7 +29,9 @@ public class Hl7Parser {
 
     public static OML_O21 toOml021Message(String hl7String) {
         try {
-            Message msg = (new PipeParser()).parse(hl7String);
+            PipeParser parser = new PipeParser();
+            parser.setValidationContext(new NoValidation());
+            Message msg = parser.parse(hl7String);
             return (OML_O21) msg;
         } catch (Exception ex) {
             System.out.println("Exception when parsing HL7 OML Message: " + ex.getMessage());
