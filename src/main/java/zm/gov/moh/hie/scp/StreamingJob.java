@@ -5,16 +5,11 @@ import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zm.gov.moh.hie.scp.deserializer.LabOrderDeserializer;
 import zm.gov.moh.hie.scp.dto.LabOrder;
 import zm.gov.moh.hie.scp.sink.DeferredJdbcSink;
-
-import java.util.Collections;
-import java.util.Properties;
 
 public class StreamingJob {
     private static final Logger LOG = LoggerFactory.getLogger(StreamingJob.class);
@@ -22,21 +17,6 @@ public class StreamingJob {
     public static void main(String[] args) throws Exception {
         // Load effective configuration (CLI > env > defaults)
         final Config cfg = Config.fromEnvAndArgs(args);
-
-        // Reset consumer group if RESET_CONSUMER_GROUP env var is set to true
-        if ("true".equalsIgnoreCase(System.getenv("RESET_CONSUMER_GROUP"))) {
-            LOG.info("RESET_CONSUMER_GROUP is true, resetting consumer group: {}", cfg.kafkaGroupId);
-            try {
-                Properties adminProps = new Properties();
-                adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, cfg.kafkaBootstrapServers);
-                try (AdminClient adminClient = AdminClient.create(adminProps)) {
-                    adminClient.deleteConsumerGroups(Collections.singleton(cfg.kafkaGroupId)).all().get();
-                    LOG.info("Consumer group {} reset successfully", cfg.kafkaGroupId);
-                }
-            } catch (Exception e) {
-                LOG.warn("Could not reset consumer group {}: {}", cfg.kafkaGroupId, e.getMessage());
-            }
-        }
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
