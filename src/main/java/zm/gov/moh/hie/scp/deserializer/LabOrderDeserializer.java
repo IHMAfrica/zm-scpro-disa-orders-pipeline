@@ -55,6 +55,9 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
             // Extract MFL code from MSH-4
             String mflCode = extractMflCodeRobust(omlMsg);
 
+            // Extract lab code from MSH-6
+            String labCode = extractLabCode(omlMsg);
+
             // Extract order ID (ORC-2 Placer Order Number) using HAPI
             String orderId = extractOrderId(omlMsg);
 
@@ -83,11 +86,13 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
                     orderTime,
                     messageRefId,
                     sendingApplication != null ? sendingApplication : "",
-                    loinc  // pass LOINC for SQL lookup
+                    loinc,  // pass LOINC for SQL lookup
+                    labCode,  // lab code extracted from MSH-6
+                    omlString  // raw HL7 message for DLQ
             );
 
-            LOG.info("Successfully deserialized LabOrder: orderId={}, messageRefId={}, mflCode={}, sendingApp={}, orderDate={}, orderTime={}",
-                    orderId, messageRefId, mflCode, sendingApplication, orderDate, orderTime);
+            LOG.info("Successfully deserialized LabOrder: orderId={}, messageRefId={}, mflCode={}, labCode={}, sendingApp={}, orderDate={}, orderTime={}",
+                    orderId, messageRefId, mflCode, labCode, sendingApplication, orderDate, orderTime);
             return labOrder;
 
         } catch (Exception e) {
@@ -223,5 +228,21 @@ public class LabOrderDeserializer implements DeserializationSchema<LabOrder> {
             LOG.debug("Could not extract MFL code from MSH-4: {}", e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Extract lab code from MSH-6 (Receiving Facility namespace ID) using HAPI.
+     */
+    private String extractLabCode(OML_O21 omlMsg) {
+        try {
+            String labCode = omlMsg.getMSH().getReceivingFacility().getNamespaceID().getValue();
+            if (labCode != null && !labCode.isEmpty()) {
+                LOG.debug("Extracted lab code from MSH-6: {}", labCode);
+                return labCode;
+            }
+        } catch (Exception e) {
+            LOG.debug("Could not extract lab code from MSH-6: {}", e.getMessage());
+        }
+        return null;
     }
 }

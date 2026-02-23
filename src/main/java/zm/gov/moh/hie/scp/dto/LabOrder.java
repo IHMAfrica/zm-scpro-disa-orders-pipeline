@@ -13,10 +13,12 @@ public class LabOrder implements Serializable {
     private String messageRefId;
     private String sendingApplication;
     private String loinc;
+    private String labCode;
+    private String rawMessage;
 
     public LabOrder() {}
 
-    public LabOrder(Header header, String mflCode, String orderId, Short testId, String orderDate, String orderTime, String messageRefId, String sendingApplication, String loinc) {
+    public LabOrder(Header header, String mflCode, String orderId, Short testId, String orderDate, String orderTime, String messageRefId, String sendingApplication, String loinc, String labCode, String rawMessage) {
         this.header = header;
         this.mflCode = mflCode;
         this.orderId = orderId;
@@ -26,6 +28,8 @@ public class LabOrder implements Serializable {
         this.messageRefId = messageRefId;
         this.sendingApplication = sendingApplication;
         this.loinc = loinc;
+        this.labCode = labCode;
+        this.rawMessage = rawMessage;
     }
 
     public Header getHeader() {
@@ -100,6 +104,22 @@ public class LabOrder implements Serializable {
         this.loinc = loinc;
     }
 
+    public String getLabCode() {
+        return labCode;
+    }
+
+    public void setLabCode(String labCode) {
+        this.labCode = labCode;
+    }
+
+    public String getRawMessage() {
+        return rawMessage;
+    }
+
+    public void setRawMessage(String rawMessage) {
+        this.rawMessage = rawMessage;
+    }
+
     @Override
     public String toString() {
         return "LabOrder{" +
@@ -111,6 +131,7 @@ public class LabOrder implements Serializable {
                 ", orderTime='" + orderTime + '\'' +
                 ", messageRefId='" + messageRefId + '\'' +
                 ", sendingApplication='" + sendingApplication + '\'' +
+                ", labCode='" + labCode + '\'' +
                 '}';
     }
 }

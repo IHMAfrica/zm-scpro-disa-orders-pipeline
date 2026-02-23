@@ -131,6 +131,7 @@ public class DeferredJdbcSink extends RichSinkFunction<LabOrder> {
                 ps.setString(5, element.getOrderTime());
                 ps.setString(6, element.getSendingApplication());
                 ps.setString(7, element.getLoinc());
+                ps.setString(8, element.getLabCode());
                 ps.addBatch();
             }
             int[] result = ps.executeBatch();

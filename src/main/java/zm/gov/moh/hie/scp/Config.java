@@ -59,7 +59,7 @@ public class Config {
         // 1) defaults
         params.put("kafka.bootstrap.servers", "154.120.216.119:9093,102.23.120.153:9093,102.23.123.251:9093");
         params.put("kafka.topic", "lab-orders");
-        params.put("kafka.group.id", "flink-scpro-disa-orders-consumer");
+        params.put("kafka.group.id", "flink-scpro-disa-orders-consumer-v2");
         params.put("kafka.security.protocol", "SASL_PLAINTEXT");
         params.put("kafka.sasl.mechanism", "SCRAM-SHA-256");
         params.put("kafka.sasl.username", "admin");
