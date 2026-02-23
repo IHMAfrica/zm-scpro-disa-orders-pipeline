@@ -86,4 +86,3 @@ Requirements for deployment:
 ./gradlew test
 
 ## License
-
