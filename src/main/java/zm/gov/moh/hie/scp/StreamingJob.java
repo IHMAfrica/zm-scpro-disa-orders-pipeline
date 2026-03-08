@@ -95,15 +95,7 @@ public class StreamingJob {
         // Create JDBC Sink
         // Using deferred sink to avoid DNS resolution errors during operator initialization
         final String upsertSql = "INSERT INTO crt.lab_order (order_id, message_ref_id, mfl_code, order_date, order_time, sending_application, test_id, lab_code) " +
-                "VALUES (?, ?, ?, ?::date, ?::time, ?, ?, ?) " +
-                "ON CONFLICT (message_ref_id) DO UPDATE SET " +
-                "order_id = EXCLUDED.order_id, " +
-                "mfl_code = EXCLUDED.mfl_code, " +
-                "order_date = EXCLUDED.order_date, " +
-                "order_time = EXCLUDED.order_time, " +
-                "sending_application = EXCLUDED.sending_application, " +
-                "test_id = EXCLUDED.test_id, " +
-                "lab_code = EXCLUDED.lab_code";
+                "VALUES (?, ?, ?, ?::date, ?::time, ?, ?, ?)";
 
         // Split stream: valid orders (with lab_code) vs DLQ (missing lab_code)
         DataStream<LabOrder> validStream = mflFilteredStream
