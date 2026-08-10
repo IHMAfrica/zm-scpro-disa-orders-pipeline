@@ -12,5 +12,7 @@ spec:
     upgradeMode: stateless
     state: running
     args:
-      - "--jdbc.url=jdbc:postgresql://172.16.20.9:35616/hie_manager"
+      # SANITIZED FOR HANDOVER: fill in the real Postgres host, port, and database name below
+      # (or better, remove this and inject via a Secret/ConfigMap instead of a plain CLI arg)
+      - "--jdbc.url=jdbc:postgresql://<DB_HOST>:<DB_PORT>/<DB_NAME>"
       - "--kafka.group.id=scpro-disa-orders-pipeline"
