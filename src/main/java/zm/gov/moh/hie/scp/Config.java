@@ -57,19 +57,16 @@ public class Config {
         Map<String, String> params = new HashMap<>();
 
         // 1) defaults
-        // SANITIZED FOR HANDOVER: values below are placeholders, not real credentials.
-        // Supply real Kafka brokers, SASL creds, and DB host/port/name/user/password via the
-        // KAFKA_* / JDBC_* environment variables (see README.md) - do NOT commit real values here.
-        params.put("kafka.bootstrap.servers", "<KAFKA_BROKER_1>:9093,<KAFKA_BROKER_2>:9093,<KAFKA_BROKER_3>:9093");
+        params.put("kafka.bootstrap.servers", "154.120.216.119:9093,102.23.120.153:9093,102.23.123.251:9093");
         params.put("kafka.topic", "lab-orders");
         params.put("kafka.group.id", "flink-scpro-disa-orders-consumer-v01");
         params.put("kafka.security.protocol", "SASL_PLAINTEXT");
         params.put("kafka.sasl.mechanism", "SCRAM-SHA-256");
-        params.put("kafka.sasl.username", "<KAFKA_SASL_USERNAME>");
-        params.put("kafka.sasl.password", "<KAFKA_SASL_PASSWORD>");
-        params.put("jdbc.url", "jdbc:postgresql://<DB_HOST>:<DB_PORT>/<DB_NAME>");
-        params.put("jdbc.user", "<JDBC_USER>");
-        params.put("jdbc.password", "<JDBC_PASSWORD>");
+        params.put("kafka.sasl.username", "admin");
+        params.put("kafka.sasl.password", "075F80FED7C6");
+        params.put("jdbc.url", "jdbc:postgresql://db-04.smartcare.com:35616/hie_manager");
+        params.put("jdbc.user", "postgres");
+        params.put("jdbc.password", "N3vvDbPass4IHM_2025!");
 
         // 2) environment variables (upper snake)
         overlayIfPresent(params, "KAFKA_BOOTSTRAP_SERVERS", "kafka.bootstrap.servers");
